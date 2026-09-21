@@ -14,11 +14,36 @@ import syncRoutes from "./routes/syncRoutes.js";
 
 const app = express();
 
+// Allowed origins configuration
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000,http://localhost:5173")
+  .split(",")
+  .map((url) => url.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
 // Middlewares
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman, or server-to-server)
+      if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.replace(/\/+$/, "");
+
+      // Check if origin is explicitly in allowedOrigins or matches vercel.app domains
+      const isAllowed =
+        allowedOrigins.includes(normalizedOrigin) ||
+        /\.vercel\.app$/.test(new URL(origin).hostname) ||
+        /^http:\/\/localhost(:\d+)?$/.test(normalizedOrigin);
+
+      if (isAllowed) {
+        return callback(null, true);
+      } else {
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
   })
 );
 app.use(express.json());
